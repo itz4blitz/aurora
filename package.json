@@ -1,0 +1,146 @@
+{
+    "name": "o1pro-extension",
+    "displayName": "o1pro-extension",
+    "description": "VSCode extension to display and interact with a chat-like web interface (o1 pro) via a local proxy.",
+    "version": "0.0.1",
+    "publisher": "yourpublishername",
+    "engines": {
+        "vscode": "^1.75.0"
+    },
+    "categories": [
+        "Other"
+    ],
+    "main": "./out/extension.js",
+    "contributes": {
+        "configuration": {
+            "title": "Aurora AI",
+            "properties": {
+                "aurora.geminiApiKey": {
+                    "type": "string",
+                    "default": "",
+                    "description": "API key for Google's Gemini AI"
+                },
+                "aurora.o1proAuthToken": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Authentication token for o1 pro"
+                },
+                "aurora.defaultModel": {
+                    "type": "string",
+                    "enum": [
+                        "chatgpt",
+                        "gemini"
+                    ],
+                    "default": "chatgpt",
+                    "description": "Default AI model to use"
+                },
+                "aurora.shortcuts": {
+                    "type": "object",
+                    "properties": {
+                        "toggleModel": {
+                            "type": "string",
+                            "default": "ctrl+shift+m",
+                            "description": "Shortcut to toggle between models"
+                        },
+                        "newConversation": {
+                            "type": "string",
+                            "default": "ctrl+shift+n",
+                            "description": "Create new conversation"
+                        },
+                        "searchConversations": {
+                            "type": "string",
+                            "default": "ctrl+shift+f",
+                            "description": "Focus conversation search"
+                        }
+                    }
+                },
+                "aurora.categories": {
+                    "type": "array",
+                    "default": [
+                        "General",
+                        "Code",
+                        "Debug",
+                        "Explain",
+                        "Custom"
+                    ],
+                    "description": "Conversation categories"
+                }
+            }
+        },
+        "commands": [
+            {
+                "command": "aurora.openChat",
+                "title": "Aurora: Open AI Chat"
+            },
+            {
+                "command": "aurora.exportConversations",
+                "title": "Aurora: Export Conversations"
+            },
+            {
+                "command": "aurora.importConversations",
+                "title": "Aurora: Import Conversations"
+            },
+            {
+                "command": "aurora.toggleModel",
+                "title": "Aurora: Toggle AI Model"
+            }
+        ],
+        "keybindings": [
+            {
+                "command": "aurora.toggleModel",
+                "key": "ctrl+shift+m",
+                "mac": "cmd+shift+m"
+            }
+        ]
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "build": "vsce package",
+        "lint": "eslint src --ext ts",
+        "test": "node ./out/test/runTest.js",
+        "pretest": "npm run compile && npm run lint",
+        "prepare": "husky install",
+        "format": "prettier --write \"src/**/*.ts\"",
+        "format:check": "prettier --check \"src/**/*.ts\"",
+        "precommit": "lint-staged"
+    },
+    "devDependencies": {
+        "@types/diff-match-patch": "^1.0.36",
+        "@types/node": "^16.x",
+        "@types/vscode": "^1.85.0",
+        "@typescript-eslint/eslint-plugin": "^6.15.0",
+        "@typescript-eslint/parser": "^6.15.0",
+        "eslint": "^8.56.0",
+        "typescript": "^5.3.3",
+        "vsce": "^2.15.0",
+        "husky": "^8.0.3",
+        "lint-staged": "^15.2.0",
+        "prettier": "^3.1.1"
+    },
+    "dependencies": {
+        "@google/generative-ai": "^0.21.0",
+        "diff-match-patch": "^1.0.5"
+    },
+    "_moduleAliases": {
+        "@": "src",
+        "@ui": "src/ui",
+        "@services": "src/services",
+        "@utils": "src/utils",
+        "@webview": "src/webview",
+        "@config": "src/config",
+        "@error": "src/error",
+        "@types": "src/types",
+        "@commands": "src/commands",
+        "@visualization": "src/visualization",
+        "@status": "src/status",
+        "@sync": "src/sync"
+    },
+    "lint-staged": {
+        "*.ts": [
+            "prettier --write",
+            "eslint --fix"
+        ]
+    }
+}

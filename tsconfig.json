@@ -1,0 +1,32 @@
+{
+    "compilerOptions": {
+      "outDir": "out",
+      "target": "ES2020",
+      "module": "commonjs",
+      "lib": [
+        "ES2020",
+        "DOM",
+        "DOM.Iterable"
+      ],
+      "sourceMap": true,
+      "rootDir": "src",
+      "strict": true,
+      "esModuleInterop": true,
+      "baseUrl": "src",
+      "paths": {
+        "@/*": ["*"],
+        "@ui/*": ["ui/*"],
+        "@services/*": ["services/*"],
+        "@utils/*": ["utils/*"],
+        "@webview/*": ["webview/*"],
+        "@config/*": ["config/*"],
+        "@error/*": ["error/*"],
+        "@types": ["types"],
+        "@commands/*": ["commands/*"],
+        "@visualization/*": ["visualization/*"],
+        "@status/*": ["status/*"],
+        "@sync/*": ["sync/*"]
+      }
+    },
+    "exclude": ["node_modules", ".vscode-test"]
+  }
