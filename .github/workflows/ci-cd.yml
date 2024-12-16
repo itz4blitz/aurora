@@ -18,6 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
+    outputs:
+      new_version: ${{ steps.version.outputs.new_version }}
+
     steps:
     - uses: actions/checkout@v3
       with:
@@ -44,6 +47,9 @@ jobs:
       env:
         NODE_ENV: production
 
+    - name: Package VSIX
+      run: npx vsce package
+
     - name: Upload artifact
       uses: actions/upload-artifact@v3
       with:
@@ -53,6 +59,7 @@ jobs:
 
     - name: Auto Version and Tag
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      id: version
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
@@ -69,6 +76,7 @@ jobs:
         # Calculate new version
         IFS='.' read -r -a version_parts <<< "$CURRENT_VERSION"
         NEW_VERSION="${version_parts[0]}.${version_parts[1]}.$((version_parts[2] + 1))"
+        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
         
         # Update package.json
         sed -i "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$NEW_VERSION\"/" package.json
@@ -82,44 +90,29 @@ jobs:
         git push origin main
         git push origin "v$NEW_VERSION"
 
-  release:
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Get version
-      id: get_version
-      run: |
-        VERSION=${GITHUB_REF#refs/tags/v}
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-    - name: Download artifact
-      uses: actions/download-artifact@v3
-      with:
-        name: vsix-package
-
     - name: Create Release
+      if: steps.version.outputs.new_version != ''
       uses: softprops/action-gh-release@v1
       with:
+        tag_name: "v${{ steps.version.outputs.new_version }}"
+        name: "Release v${{ steps.version.outputs.new_version }}"
         files: "*.vsix"
-        name: "Release v${{ steps.get_version.outputs.version }}"
-        body: |
-          ## What's Changed
-          
-          ### New Features 🎉
-          - Auto-generated release notes
-          
-          ### Bug Fixes 🐛
-          - Dependency updates
-          
-          ### Documentation 📚
-          - Updated README
         draft: false
         prerelease: false
         generate_release_notes: true
+        body: |
+          ## Aurora v${{ steps.version.outputs.new_version }}
+          
+          ### 🎉 New Features
+          - Improved build system
+          - Automated releases
+          
+          ### 🐛 Bug Fixes
+          - Dependency updates
+          - Build process improvements
+          
+          ### 📚 Documentation
+          - Updated README
+          - Added release notes
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
