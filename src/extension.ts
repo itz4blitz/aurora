@@ -6,6 +6,8 @@ import { ChatWebview } from '@webview/ChatWebview';
 import { ConversationManager } from '@services/ConversationManager';
 import { GeminiService } from '@services/GeminiService';
 import type { WebviewState, ModelConfigWithType } from '@types';
+import { ChatViewProvider } from './ui/views/ChatViewProvider';
+import { HistoryViewProvider } from './ui/views/HistoryViewProvider';
 
 let disposables: vscode.Disposable[] = [];
 let extensionContext: vscode.ExtensionContext;
@@ -79,6 +81,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         }
       },
     });
+
+    // Register view providers
+    const chatViewProvider = new ChatViewProvider(context);
+    const historyViewProvider = new HistoryViewProvider(context);
+
+    context.subscriptions.push(
+      vscode.window.registerWebviewViewProvider(ChatViewProvider.viewType, chatViewProvider),
+      vscode.window.registerWebviewViewProvider(HistoryViewProvider.viewType, historyViewProvider)
+    );
 
     // Show success message
     void vscode.window.showInformationMessage('Aurora AI is ready to assist you!');

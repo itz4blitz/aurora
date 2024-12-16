@@ -70,7 +70,13 @@
         "commands": [
             {
                 "command": "aurora.openChat",
-                "title": "Aurora: Open AI Chat"
+                "title": "Open Chat",
+                "category": "Aurora"
+            },
+            {
+                "command": "aurora.configure",
+                "title": "Configure",
+                "category": "Aurora"
             },
             {
                 "command": "aurora.exportConversations",
@@ -91,7 +97,44 @@
                 "key": "ctrl+shift+m",
                 "mac": "cmd+shift+m"
             }
-        ]
+        ],
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "aurora-sidebar",
+                    "title": "Aurora AI",
+                    "icon": "resources/aurora-icon.svg"
+                }
+            ]
+        },
+        "views": {
+            "aurora-sidebar": [
+                {
+                    "id": "auroraChat",
+                    "name": "Chat",
+                    "type": "webview"
+                },
+                {
+                    "id": "auroraHistory",
+                    "name": "History"
+                }
+            ]
+        },
+        "menus": {
+            "commandPalette": [
+                {
+                    "command": "aurora.openChat",
+                    "when": "true"
+                }
+            ],
+            "view/title": [
+                {
+                    "command": "aurora.configure",
+                    "when": "view == auroraChat",
+                    "group": "navigation"
+                }
+            ]
+        }
     },
     "scripts": {
         "vscode:prepublish": "npm run compile",
@@ -145,9 +188,7 @@
         ]
     },
     "activationEvents": [
-        "onStartupFinished",
-        "onCommand:aurora.start",
-        "onCommand:aurora.configure"
+        "onStartupFinished"
     ],
     "repository": {
         "type": "git",
