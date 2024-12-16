@@ -49,17 +49,32 @@ jobs:
     - name: Auto Version and Tag
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: |
+        # Setup git
         git config --global user.name 'github-actions[bot]'
         git config --global user.email 'github-actions[bot]@users.noreply.github.com'
         
-        # Simple version bump
-        VERSION=$(npm version patch --no-git-tag-version)
+        # Commit any pending changes first
+        git add -A
+        git commit -m "chore: build artifacts" || echo "No changes to commit"
         
-        # Commit and tag
-        git add package.json package-lock.json
-        git commit -m "chore: release ${VERSION}"
-        git tag -a "${VERSION}" -m "Release ${VERSION}"
-        git push origin main --follow-tags
+        # Read current version
+        CURRENT_VERSION=$(node -p "require('./package.json').version")
+        
+        # Calculate new version
+        IFS='.' read -r -a version_parts <<< "$CURRENT_VERSION"
+        NEW_VERSION="${version_parts[0]}.${version_parts[1]}.$((version_parts[2] + 1))"
+        
+        # Update package.json
+        sed -i "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$NEW_VERSION\"/" package.json
+        
+        # Commit version bump and tag
+        git add package.json
+        git commit -m "chore: release v$NEW_VERSION"
+        git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
+        
+        # Push changes
+        git push origin main
+        git push origin "v$NEW_VERSION"
 
   release:
     needs: build
