@@ -63,8 +63,12 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
+        # Setup git
         git config --global user.name 'github-actions[bot]'
         git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+        
+        # Ensure we're up to date
+        git pull origin main --rebase
         
         # Commit any pending changes first
         git add -A
@@ -86,8 +90,8 @@ jobs:
         git commit -m "chore: release v$NEW_VERSION"
         git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
         
-        # Push changes
-        git push origin main
+        # Force push with lease for safety
+        git push --force-with-lease origin main
         git push origin "v$NEW_VERSION"
 
     - name: Create Release
