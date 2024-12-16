@@ -46,40 +46,19 @@ jobs:
         path: "*.vsix"
         retention-days: 1
 
-    - name: Setup Git for Version Bump
+    - name: Auto Version and Tag
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: |
         git config --global user.name 'github-actions[bot]'
         git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-
-    - name: Bump Version
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      run: |
-        # Stage all changes
-        git add -A
         
-        # Commit any pending changes
-        if ! git diff --cached --quiet; then
-          git commit -m "chore: build artifacts"
-        fi
+        # Simple version bump
+        VERSION=$(npm version patch --no-git-tag-version)
         
-        # Get current version and calculate new version
-        CURRENT_VERSION=$(node -p "require('./package.json').version")
-        IFS='.' read -r -a VERSION_PARTS <<< "$CURRENT_VERSION"
-        PATCH=$((VERSION_PARTS[2] + 1))
-        NEW_VERSION="${VERSION_PARTS[0]}.${VERSION_PARTS[1]}.$PATCH"
-        
-        # Update package.json version
-        npm --no-git-tag-version version "$NEW_VERSION"
-        
-        # Stage and commit version bump
+        # Commit and tag
         git add package.json package-lock.json
-        git commit -m "chore: bump version to $NEW_VERSION"
-        
-        # Create annotated tag
-        git tag -a "v$NEW_VERSION" -m "Version $NEW_VERSION"
-        
-        # Push everything
+        git commit -m "chore: release ${VERSION}"
+        git tag -a "${VERSION}" -m "Release ${VERSION}"
         git push origin main --follow-tags
 
   release:
