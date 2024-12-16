@@ -18,14 +18,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
-    outputs:
-      new_version: ${{ steps.version.outputs.new_version }}
-
     steps:
     - name: Fresh checkout
       uses: actions/checkout@v3
       with:
         fetch-depth: 0
+
+    - name: Setup Git
+      run: |
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+        git config --global pull.rebase true
 
     - name: Setup Node.js
       uses: actions/setup-node@v3
@@ -47,24 +50,13 @@ jobs:
       env:
         NODE_ENV: production
 
-    - name: Upload artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: vsix-package
-        path: "*.vsix"
-        retention-days: 1
-
     - name: Auto Version and Tag
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       id: version
       run: |
-        # Setup git
-        git config --global user.name 'github-actions[bot]'
-        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-        
-        # Force reset to main
+        # Sync with remote
         git fetch origin main
-        git reset --hard origin/main
+        git rebase origin/main
         
         # Read current version
         CURRENT_VERSION=$(node -p "require('./package.json').version")
@@ -82,33 +74,45 @@ jobs:
         git commit -m "chore: release v$NEW_VERSION"
         git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
         
-        # Force push since this is a new repo
-        git push -f origin main
+        # Push changes
+        git push origin main
         git push origin "v$NEW_VERSION"
+
+    # Package VSIX after version update
+    - name: Package VSIX
+      if: steps.version.outputs.new_version != ''
+      run: npx vsce package
 
     - name: Create Release
       if: steps.version.outputs.new_version != ''
       uses: softprops/action-gh-release@v1
       with:
         tag_name: "v${{ steps.version.outputs.new_version }}"
-        name: "Release v${{ steps.version.outputs.new_version }}"
+        name: "Aurora v${{ steps.version.outputs.new_version }}"
         files: "*.vsix"
         draft: false
         prerelease: false
-        generate_release_notes: true
         body: |
-          ## Aurora v${{ steps.version.outputs.new_version }}
-          
-          ### 🎉 New Features
-          - Improved build system
-          - Automated releases
-          
-          ### 🐛 Bug Fixes
-          - Dependency updates
-          - Build process improvements
-          
-          ### 📚 Documentation
-          - Updated README
-          - Added release notes
+          ## What's Changed
+
+          ### Features
+          - AI-powered code assistance
+          - Natural language processing
+          - Code generation and refactoring
+          - Intelligent code suggestions
+
+          ### Improvements
+          - Enhanced build process
+          - Automated release workflow
+          - Improved error handling
+          - Better documentation
+
+          ### Installation
+          1. Download the VSIX file
+          2. Install via VS Code Extensions menu
+          3. Reload VS Code
+          4. Configure your API key
+
+          For full documentation, visit our [GitHub repository](https://github.com/itz4blitz/aurora).
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
