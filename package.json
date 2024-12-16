@@ -2,7 +2,7 @@
   "name": "aurora-extension",
   "displayName": "Aurora AI",
   "description": "VSCode extension to display and interact with a chat-like web interface (o1 pro) via a local proxy.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "itz4blitz",
   "engines": {
     "vscode": "^1.85.0"
