@@ -22,10 +22,10 @@ jobs:
       new_version: ${{ steps.version.outputs.new_version }}
 
     steps:
-    - uses: actions/checkout@v3
+    - name: Fresh checkout
+      uses: actions/checkout@v3
       with:
         fetch-depth: 0
-        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Setup Node.js
       uses: actions/setup-node@v3
@@ -47,9 +47,6 @@ jobs:
       env:
         NODE_ENV: production
 
-    - name: Package VSIX
-      run: npx vsce package
-
     - name: Upload artifact
       uses: actions/upload-artifact@v3
       with:
@@ -60,19 +57,14 @@ jobs:
     - name: Auto Version and Tag
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       id: version
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         # Setup git
         git config --global user.name 'github-actions[bot]'
         git config --global user.email 'github-actions[bot]@users.noreply.github.com'
         
-        # Ensure we're up to date
-        git pull origin main --rebase
-        
-        # Commit any pending changes first
-        git add -A
-        git commit -m "chore: build artifacts" || echo "No changes to commit"
+        # Force reset to main
+        git fetch origin main
+        git reset --hard origin/main
         
         # Read current version
         CURRENT_VERSION=$(node -p "require('./package.json').version")
@@ -90,8 +82,8 @@ jobs:
         git commit -m "chore: release v$NEW_VERSION"
         git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
         
-        # Force push with lease for safety
-        git push --force-with-lease origin main
+        # Force push since this is a new repo
+        git push -f origin main
         git push origin "v$NEW_VERSION"
 
     - name: Create Release
