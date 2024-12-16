@@ -1,16 +1,20 @@
 {
-    "name": "o1pro-extension",
-    "displayName": "o1pro-extension",
+    "name": "aurora-extension",
+    "displayName": "Aurora AI",
     "description": "VSCode extension to display and interact with a chat-like web interface (o1 pro) via a local proxy.",
     "version": "0.0.1",
-    "publisher": "yourpublishername",
+    "publisher": "itz4blitz",
     "engines": {
         "vscode": "^1.85.0"
     },
     "categories": [
         "Other"
     ],
-    "main": "./dist/extension.js",
+    "main": "dist/extension.js",
+    "files": [
+        "dist/**/*",
+        "resources/**/*"
+    ],
     "contributes": {
         "configuration": {
             "title": "Aurora AI",
@@ -70,25 +74,31 @@
         "commands": [
             {
                 "command": "aurora.openChat",
-                "title": "Open Chat",
-                "category": "Aurora"
-            },
-            {
-                "command": "aurora.configure",
-                "title": "Configure",
-                "category": "Aurora"
-            },
-            {
-                "command": "aurora.exportConversations",
-                "title": "Aurora: Export Conversations"
-            },
-            {
-                "command": "aurora.importConversations",
-                "title": "Aurora: Import Conversations"
+                "title": "Aurora: Open AI Chat"
             },
             {
                 "command": "aurora.toggleModel",
                 "title": "Aurora: Toggle AI Model"
+            },
+            {
+                "command": "aurora.focusChat",
+                "title": "Aurora AI: Focus on Chat View"
+            },
+            {
+                "command": "aurora.focusHistory",
+                "title": "Aurora AI: Focus on History View"
+            },
+            {
+                "command": "aurora.configure",
+                "title": "Aurora: Configure Settings"
+            },
+            {
+                "command": "aurora.export",
+                "title": "Aurora: Export Conversations"
+            },
+            {
+                "command": "aurora.import",
+                "title": "Aurora: Import Conversations"
             }
         ],
         "keybindings": [
@@ -101,22 +111,23 @@
         "viewsContainers": {
             "activitybar": [
                 {
-                    "id": "aurora-sidebar",
+                    "id": "aurora-ai",
                     "title": "Aurora AI",
-                    "icon": "resources/aurora-icon.svg"
+                    "icon": "resources/icons/aurora.svg"
                 }
             ]
         },
         "views": {
-            "aurora-sidebar": [
+            "aurora-ai": [
                 {
-                    "id": "auroraChat",
+                    "id": "aurora-chat",
                     "name": "Chat",
                     "type": "webview"
                 },
                 {
-                    "id": "auroraHistory",
-                    "name": "History"
+                    "id": "aurora-history",
+                    "name": "History",
+                    "type": "webview"
                 }
             ]
         },
@@ -125,24 +136,35 @@
                 {
                     "command": "aurora.openChat",
                     "when": "true"
-                }
-            ],
-            "view/title": [
+                },
                 {
                     "command": "aurora.configure",
-                    "when": "view == auroraChat",
-                    "group": "navigation"
+                    "when": "true"
+                },
+                {
+                    "command": "aurora.exportConversations",
+                    "when": "true"
+                },
+                {
+                    "command": "aurora.importConversations",
+                    "when": "true"
+                },
+                {
+                    "command": "aurora.toggleModel",
+                    "when": "true"
                 }
             ]
         }
     },
     "scripts": {
-        "vscode:prepublish": "npm run compile",
+        "vscode:prepublish": "npm run esbuild-base -- --minify",
+        "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --external:module-alias/register --format=cjs --platform=node",
         "compile": "tsc -p ./",
         "watch": "tsc -watch -p ./",
-        "build": "vsce package",
+        "build": "npm run clean && npm run esbuild-base && vsce package",
+        "clean": "rimraf dist *.vsix",
         "lint": "eslint src --ext ts",
-        "test": "node ./out/test/runTest.js",
+        "test": "node ./dist/test/runTest.js",
         "pretest": "npm run compile && npm run lint",
         "prepare": "husky install",
         "format": "prettier --write \"src/**/*.ts\"",
@@ -151,35 +173,45 @@
     },
     "devDependencies": {
         "@types/diff-match-patch": "^1.0.36",
-        "@types/node": "^16.x",
+        "@types/jszip": "^3.4.0",
+        "@types/module-alias": "^2.0.4",
+        "@types/node": "^16.18.122",
+        "@types/node-fetch": "^2.6.12",
         "@types/vscode": "^1.85.0",
         "@typescript-eslint/eslint-plugin": "^6.15.0",
         "@typescript-eslint/parser": "^6.15.0",
+        "esbuild": "^0.24.0",
         "eslint": "^8.56.0",
-        "typescript": "^5.3.3",
-        "vsce": "^2.15.0",
         "husky": "^8.0.3",
         "lint-staged": "^15.2.0",
-        "prettier": "^3.1.1"
+        "node-fetch": "^3.3.2",
+        "prettier": "^3.1.1",
+        "rimraf": "^5.0.0",
+        "ts-loader": "^9.5.1",
+        "typescript": "^5.3.3",
+        "vsce": "^2.15.0",
+        "webpack": "^5.97.1",
+        "webpack-cli": "^5.1.4"
     },
     "dependencies": {
         "@google/generative-ai": "^0.21.0",
+        "@types/vscode": "^1.85.0",
         "diff-match-patch": "^1.0.5",
-        "@types/vscode": "^1.85.0"
+        "module-alias": "^2.2.3"
     },
     "_moduleAliases": {
-        "@": "src",
-        "@ui": "src/ui",
-        "@services": "src/services",
-        "@utils": "src/utils",
-        "@webview": "src/webview",
-        "@config": "src/config",
-        "@error": "src/error",
-        "@types": "src/types",
-        "@commands": "src/commands",
-        "@visualization": "src/visualization",
-        "@status": "src/status",
-        "@sync": "src/sync"
+        "@": "dist",
+        "@services": "dist/services",
+        "@ui": "dist/ui",
+        "@utils": "dist/utils",
+        "@webview": "dist/webview",
+        "@config": "dist/config",
+        "@error": "dist/error",
+        "@types": "dist/types",
+        "@commands": "dist/commands",
+        "@visualization": "dist/visualization",
+        "@status": "dist/status",
+        "@sync": "dist/sync"
     },
     "lint-staged": {
         "*.ts": [

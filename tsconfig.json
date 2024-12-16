@@ -10,33 +10,41 @@
         "ES2021"
       ],
       "sourceMap": true,
-      "rootDirs": ["src", "media"],
+      "rootDir": ".",
       "strict": true,
       "noUnusedLocals": true,
       "noUnusedParameters": true,
       "exactOptionalPropertyTypes": true,
       "noImplicitReturns": true,
       "esModuleInterop": true,
-      "baseUrl": ".",
+      "baseUrl": "src",
       "paths": {
-        "@/*": ["src/*"],
-        "@ui/*": ["src/ui/*"],
-        "@services/*": ["src/services/*"],
-        "@utils/*": ["src/utils/*"],
-        "@webview/*": ["src/webview/*"],
-        "@config/*": ["src/config/*"],
-        "@error/*": ["src/error/*"],
-        "@types": ["src/types"],
-        "@commands/*": ["src/commands/*"],
-        "@visualization/*": ["src/visualization/*"],
-        "@status/*": ["src/status/*"],
-        "@sync/*": ["src/sync/*"],
-        "@media/*": ["media/*"]
+        "@/*": ["*"],
+        "@ui/*": ["ui/*"],
+        "@services/*": ["services/*"],
+        "@utils/*": ["utils/*"],
+        "@webview/*": ["webview/*"],
+        "@config/*": ["config/*"],
+        "@error/*": ["error/*"],
+        "@types": ["types"],
+        "@commands/*": ["commands/*"],
+        "@visualization/*": ["visualization/*"],
+        "@status/*": ["status/*"],
+        "@sync/*": ["sync/*"]
       }
     },
     "exclude": ["node_modules", ".vscode-test"],
     "include": [
       "src/**/*",
-      "media/scripts/**/*"
+      "media/scripts/**/*",
+      "resources/**/*"
+    ],
+    "overrides": [
+      {
+        "files": ["resources/**/*.ts"],
+        "rules": {
+          "@typescript-eslint/...": "off"
+        }
+      }
     ]
   }

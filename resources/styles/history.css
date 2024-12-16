@@ -1,0 +1,26 @@
+.history-container {
+    padding: 1rem;
+}
+
+.history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.history-item {
+    padding: 0.5rem;
+    border: 1px solid var(--vscode-editor-lineHighlightBorder);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.history-item:hover {
+    background: var(--vscode-editor-selectionBackground);
+}
+
+.history-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+} 

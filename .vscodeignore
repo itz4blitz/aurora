@@ -8,8 +8,10 @@ vsc-extension-quickstart.md
 **/.eslintrc.json
 **/*.map
 **/*.ts
+.github/**
+.husky/**
 node_modules/**
-out/**
-# Don't ignore dist
-# dist/**
+!node_modules/@google/generative-ai/**
+!node_modules/diff-match-patch/**
+!dist/**
 package-lock.json

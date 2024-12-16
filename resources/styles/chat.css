@@ -11,6 +11,21 @@
     margin-bottom: 1rem;
 }
 
+.message {
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+    border-radius: 4px;
+}
+
+.message.user {
+    background: var(--vscode-editor-background);
+    border: 1px solid var(--vscode-editor-lineHighlightBorder);
+}
+
+.message.assistant {
+    background: var(--vscode-editor-selectionBackground);
+}
+
 .input-container {
     display: flex;
     gap: 0.5rem;
