@@ -11,6 +11,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
     - uses: actions/checkout@v3
@@ -22,32 +23,31 @@ jobs:
         cache: 'npm'
 
     - name: Install dependencies
-      run: npm ci
-
-    - name: Format Check
       run: |
-        echo "Running format check..."
-        npm run format:check || (echo "Formatting issues found. Running formatter..." && npm run format && git diff && exit 1)
+        npm ci --no-audit --no-fund --prefer-offline
+        npm cache verify
 
-    - name: Type Check
-      run: npm run compile
-
-    - name: Lint
-      run: npm run lint
-
-    - name: Build
-      run: npm run build
+    - name: Build and Test
+      run: |
+        npm run format:check
+        npm run lint
+        npm run compile
+        npm run build
+      env:
+        NODE_ENV: production
 
     - name: Upload artifact
       uses: actions/upload-artifact@v3
       with:
         name: vsix-package
         path: "*.vsix"
+        retention-days: 1
 
   release:
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: write
 
@@ -61,6 +61,4 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: "*.vsix"
-        draft: false
-        prerelease: false
-        generate_release_notes: true 
+        generate_release_notes: true

@@ -37,14 +37,12 @@
     "include": [
       "src/**/*",
       "media/scripts/**/*",
-      "resources/**/*"
+      "resources/**/*",
+      "webpack.config.ts"
     ],
-    "overrides": [
-      {
-        "files": ["resources/**/*.ts"],
-        "rules": {
-          "@typescript-eslint/...": "off"
-        }
+    "ts-node": {
+      "compilerOptions": {
+        "module": "CommonJS"
       }
-    ]
-  }
+    }
+}

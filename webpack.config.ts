@@ -1,16 +1,18 @@
-const path = require('path');
+import * as path from 'path';
+import * as webpack from 'webpack';
+import TerserPlugin from 'terser-webpack-plugin';
 
-module.exports = {
+const config: webpack.Configuration = {
   target: 'node',
   mode: 'production',
   entry: './src/extension.ts',
   output: {
     path: path.resolve(__dirname, 'out'),
     filename: 'extension.js',
-    libraryTarget: 'commonjs2'
+    libraryTarget: 'commonjs2',
   },
   externals: {
-    vscode: 'commonjs vscode'
+    vscode: 'commonjs vscode',
   },
   resolve: {
     extensions: ['.ts', '.js'],
@@ -26,8 +28,8 @@ module.exports = {
       '@commands': path.resolve(__dirname, 'src/commands'),
       '@visualization': path.resolve(__dirname, 'src/visualization'),
       '@status': path.resolve(__dirname, 'src/status'),
-      '@sync': path.resolve(__dirname, 'src/sync')
-    }
+      '@sync': path.resolve(__dirname, 'src/sync'),
+    },
   },
   module: {
     rules: [
@@ -36,10 +38,28 @@ module.exports = {
         exclude: /node_modules/,
         use: [
           {
-            loader: 'ts-loader'
-          }
-        ]
-      }
-    ]
-  }
-}; 
+            loader: 'ts-loader',
+          },
+        ],
+      },
+    ],
+  },
+  optimization: {
+    minimize: true,
+    minimizer: [
+      new TerserPlugin({
+        terserOptions: {
+          format: {
+            comments: false,
+          },
+        },
+        extractComments: false,
+      }),
+    ],
+  },
+  cache: {
+    type: 'filesystem',
+  },
+};
+
+export default config;

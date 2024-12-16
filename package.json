@@ -157,6 +157,15 @@
     }
   },
   "scripts": {
+    "dev": "npm run watch",
+    "start": "npm run compile && npm run watch",
+    "build:prod": "NODE_ENV=production npm run build",
+    "test:watch": "jest --watch",
+    "clean:all": "rimraf dist *.vsix node_modules",
+    "prepare": "husky install && npm run compile",
+    "format:fix": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "lint:fix": "eslint src --ext ts --fix",
+    "validate": "npm run format:check && npm run lint && npm run compile",
     "vscode:prepublish": "npm run esbuild-base -- --minify",
     "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --external:module-alias/register --format=cjs --platform=node",
     "compile": "tsc -p ./",
@@ -166,10 +175,10 @@
     "lint": "eslint src --ext ts",
     "test": "node ./dist/test/runTest.js",
     "pretest": "npm run compile && npm run lint",
-    "prepare": "husky",
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
-    "postinstall": "husky install"
+    "postinstall": "husky install",
+    "webpack": "webpack --config webpack.config.ts"
   },
   "devDependencies": {
     "@types/diff-match-patch": "^1.0.36",
@@ -191,7 +200,9 @@
     "typescript": "^5.3.3",
     "vsce": "^2.15.0",
     "webpack": "^5.97.1",
-    "webpack-cli": "^5.1.4"
+    "webpack-cli": "^5.1.4",
+    "@types/webpack": "^5.28.0",
+    "ts-node": "^10.9.1"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",

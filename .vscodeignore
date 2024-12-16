@@ -11,6 +11,9 @@ vsc-extension-quickstart.md
 .github/**
 .husky/**
 node_modules/**
+coverage/**
+jest.config.json
+webpack.config.js
 !node_modules/@google/generative-ai/**
 !node_modules/diff-match-patch/**
 !dist/**
