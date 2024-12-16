@@ -15,6 +15,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
 
     - name: Setup Node.js
       uses: actions/setup-node@v3
@@ -24,8 +26,15 @@ jobs:
 
     - name: Install dependencies
       run: |
-        npm ci --no-audit --no-fund --prefer-offline
-        npm cache verify
+        npm install
+        npm install -D @types/webpack@^5.28.5 ts-node@^10.9.2
+
+    - name: Version Check
+      id: version
+      run: |
+        PACKAGE_VERSION=$(node -p "require('./package.json').version")
+        echo "version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
+        echo "Package version: $PACKAGE_VERSION"
 
     - name: Build and Test
       run: |
@@ -52,6 +61,14 @@ jobs:
       contents: write
 
     steps:
+    - uses: actions/checkout@v3
+
+    - name: Get version
+      id: get_version
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/v}
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
     - name: Download artifact
       uses: actions/download-artifact@v3
       with:
@@ -61,4 +78,47 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: "*.vsix"
+        name: "Release v${{ steps.get_version.outputs.version }}"
+        body: |
+          ## What's Changed
+          
+          ### New Features 🎉
+          - Auto-generated release notes
+          
+          ### Bug Fixes 🐛
+          - Dependency updates
+          
+          ### Documentation 📚
+          - Updated README
+        draft: false
+        prerelease: false
         generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  version:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Git
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Bump version
+        id: bump_version
+        run: |
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          IFS='.' read -r -a VERSION_PARTS <<< "$CURRENT_VERSION"
+          PATCH=$((VERSION_PARTS[2] + 1))
+          NEW_VERSION="${VERSION_PARTS[0]}.${VERSION_PARTS[1]}.$PATCH"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          npm version $NEW_VERSION -m "Bump version to %s"
+          git push
+          git push --tags

@@ -178,7 +178,8 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
     "postinstall": "husky install",
-    "webpack": "webpack --config webpack.config.ts"
+    "webpack": "webpack --config webpack.config.ts",
+    "version": "npm version patch -m \"Bump version to %s\" && git push && git push --tags"
   },
   "devDependencies": {
     "@types/diff-match-patch": "^1.0.36",
