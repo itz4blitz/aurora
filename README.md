@@ -102,10 +102,9 @@ The project uses TypeScript path aliases for clean imports:
 
 - VS Code 1.85.0+
 - Node.js 16.x+
-- API Keys:
-  - Google API key (Gemini Pro)
-  - Anthropic API key (Claude)
-  - OpenAI API key (GPT Pro)
+- API Access:
+  - OpenAI API key for model access
+  - GPT Pro subscription for iframe integration
 
 ## 🤝 Contributing
 
