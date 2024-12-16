@@ -25,14 +25,15 @@ jobs:
       run: npm ci
 
     - name: Format Check
-      run: npm run format:check
+      run: |
+        echo "Running format check..."
+        npm run format:check || (echo "Formatting issues found. Running formatter..." && npm run format && git diff && exit 1)
 
     - name: Type Check
       run: npm run compile
 
     - name: Lint
       run: npm run lint
-      continue-on-error: false
 
     - name: Build
       run: npm run build

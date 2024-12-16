@@ -1,230 +1,230 @@
 {
-    "name": "aurora-extension",
-    "displayName": "Aurora AI",
-    "description": "VSCode extension to display and interact with a chat-like web interface (o1 pro) via a local proxy.",
-    "version": "0.0.1",
-    "publisher": "itz4blitz",
-    "engines": {
-        "vscode": "^1.85.0"
-    },
-    "categories": [
-        "Other"
-    ],
-    "main": "dist/extension.js",
-    "files": [
-        "dist/**/*",
-        "resources/**/*"
-    ],
-    "contributes": {
-        "configuration": {
-            "title": "Aurora AI",
-            "properties": {
-                "aurora.geminiApiKey": {
-                    "type": "string",
-                    "default": "",
-                    "description": "API key for Google's Gemini AI"
-                },
-                "aurora.o1proAuthToken": {
-                    "type": "string",
-                    "default": "",
-                    "description": "Authentication token for o1 pro"
-                },
-                "aurora.defaultModel": {
-                    "type": "string",
-                    "enum": [
-                        "chatgpt",
-                        "gemini"
-                    ],
-                    "default": "chatgpt",
-                    "description": "Default AI model to use"
-                },
-                "aurora.shortcuts": {
-                    "type": "object",
-                    "properties": {
-                        "toggleModel": {
-                            "type": "string",
-                            "default": "ctrl+shift+m",
-                            "description": "Shortcut to toggle between models"
-                        },
-                        "newConversation": {
-                            "type": "string",
-                            "default": "ctrl+shift+n",
-                            "description": "Create new conversation"
-                        },
-                        "searchConversations": {
-                            "type": "string",
-                            "default": "ctrl+shift+f",
-                            "description": "Focus conversation search"
-                        }
-                    }
-                },
-                "aurora.categories": {
-                    "type": "array",
-                    "default": [
-                        "General",
-                        "Code",
-                        "Debug",
-                        "Explain",
-                        "Custom"
-                    ],
-                    "description": "Conversation categories"
-                }
-            }
+  "name": "aurora-extension",
+  "displayName": "Aurora AI",
+  "description": "VSCode extension to display and interact with a chat-like web interface (o1 pro) via a local proxy.",
+  "version": "0.0.1",
+  "publisher": "itz4blitz",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "dist/extension.js",
+  "files": [
+    "dist/**/*",
+    "resources/**/*"
+  ],
+  "contributes": {
+    "configuration": {
+      "title": "Aurora AI",
+      "properties": {
+        "aurora.geminiApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key for Google's Gemini AI"
         },
-        "commands": [
-            {
-                "command": "aurora.openChat",
-                "title": "Aurora: Open AI Chat"
-            },
-            {
-                "command": "aurora.toggleModel",
-                "title": "Aurora: Toggle AI Model"
-            },
-            {
-                "command": "aurora.focusChat",
-                "title": "Aurora AI: Focus on Chat View"
-            },
-            {
-                "command": "aurora.focusHistory",
-                "title": "Aurora AI: Focus on History View"
-            },
-            {
-                "command": "aurora.configure",
-                "title": "Aurora: Configure Settings"
-            },
-            {
-                "command": "aurora.export",
-                "title": "Aurora: Export Conversations"
-            },
-            {
-                "command": "aurora.import",
-                "title": "Aurora: Import Conversations"
-            }
-        ],
-        "keybindings": [
-            {
-                "command": "aurora.toggleModel",
-                "key": "ctrl+shift+m",
-                "mac": "cmd+shift+m"
-            }
-        ],
-        "viewsContainers": {
-            "activitybar": [
-                {
-                    "id": "aurora-ai",
-                    "title": "Aurora AI",
-                    "icon": "resources/icons/aurora.svg"
-                }
-            ]
+        "aurora.o1proAuthToken": {
+          "type": "string",
+          "default": "",
+          "description": "Authentication token for o1 pro"
         },
-        "views": {
-            "aurora-ai": [
-                {
-                    "id": "aurora-chat",
-                    "name": "Chat",
-                    "type": "webview"
-                },
-                {
-                    "id": "aurora-history",
-                    "name": "History",
-                    "type": "webview"
-                }
-            ]
+        "aurora.defaultModel": {
+          "type": "string",
+          "enum": [
+            "chatgpt",
+            "gemini"
+          ],
+          "default": "chatgpt",
+          "description": "Default AI model to use"
         },
-        "menus": {
-            "commandPalette": [
-                {
-                    "command": "aurora.openChat",
-                    "when": "true"
-                },
-                {
-                    "command": "aurora.configure",
-                    "when": "true"
-                },
-                {
-                    "command": "aurora.exportConversations",
-                    "when": "true"
-                },
-                {
-                    "command": "aurora.importConversations",
-                    "when": "true"
-                },
-                {
-                    "command": "aurora.toggleModel",
-                    "when": "true"
-                }
-            ]
+        "aurora.shortcuts": {
+          "type": "object",
+          "properties": {
+            "toggleModel": {
+              "type": "string",
+              "default": "ctrl+shift+m",
+              "description": "Shortcut to toggle between models"
+            },
+            "newConversation": {
+              "type": "string",
+              "default": "ctrl+shift+n",
+              "description": "Create new conversation"
+            },
+            "searchConversations": {
+              "type": "string",
+              "default": "ctrl+shift+f",
+              "description": "Focus conversation search"
+            }
+          }
+        },
+        "aurora.categories": {
+          "type": "array",
+          "default": [
+            "General",
+            "Code",
+            "Debug",
+            "Explain",
+            "Custom"
+          ],
+          "description": "Conversation categories"
         }
+      }
     },
-    "scripts": {
-        "vscode:prepublish": "npm run esbuild-base -- --minify",
-        "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --external:module-alias/register --format=cjs --platform=node",
-        "compile": "tsc -p ./",
-        "watch": "tsc -watch -p ./",
-        "build": "npm run clean && npm run esbuild-base && vsce package",
-        "clean": "rimraf dist *.vsix",
-        "lint": "eslint src --ext ts",
-        "test": "node ./dist/test/runTest.js",
-        "pretest": "npm run compile && npm run lint",
-        "prepare": "husky install",
-        "format": "prettier --write \"src/**/*.ts\"",
-        "format:check": "prettier --check \"src/**/*.ts\"",
-        "precommit": "lint-staged"
-    },
-    "devDependencies": {
-        "@types/diff-match-patch": "^1.0.36",
-        "@types/jszip": "^3.4.0",
-        "@types/module-alias": "^2.0.4",
-        "@types/node": "^16.18.122",
-        "@types/node-fetch": "^2.6.12",
-        "@types/vscode": "^1.85.0",
-        "@typescript-eslint/eslint-plugin": "^6.15.0",
-        "@typescript-eslint/parser": "^6.15.0",
-        "esbuild": "^0.24.0",
-        "eslint": "^8.56.0",
-        "husky": "^8.0.3",
-        "lint-staged": "^15.2.0",
-        "node-fetch": "^3.3.2",
-        "prettier": "^3.1.1",
-        "rimraf": "^5.0.0",
-        "ts-loader": "^9.5.1",
-        "typescript": "^5.3.3",
-        "vsce": "^2.15.0",
-        "webpack": "^5.97.1",
-        "webpack-cli": "^5.1.4"
-    },
-    "dependencies": {
-        "@google/generative-ai": "^0.21.0",
-        "@types/vscode": "^1.85.0",
-        "diff-match-patch": "^1.0.5",
-        "module-alias": "^2.2.3"
-    },
-    "_moduleAliases": {
-        "@": "dist",
-        "@services": "dist/services",
-        "@ui": "dist/ui",
-        "@utils": "dist/utils",
-        "@webview": "dist/webview",
-        "@config": "dist/config",
-        "@error": "dist/error",
-        "@types": "dist/types",
-        "@commands": "dist/commands",
-        "@visualization": "dist/visualization",
-        "@status": "dist/status",
-        "@sync": "dist/sync"
-    },
-    "lint-staged": {
-        "*.ts": [
-            "prettier --write",
-            "eslint --fix"
-        ]
-    },
-    "activationEvents": [
-        "onStartupFinished"
+    "commands": [
+      {
+        "command": "aurora.openChat",
+        "title": "Aurora: Open AI Chat"
+      },
+      {
+        "command": "aurora.toggleModel",
+        "title": "Aurora: Toggle AI Model"
+      },
+      {
+        "command": "aurora.focusChat",
+        "title": "Aurora AI: Focus on Chat View"
+      },
+      {
+        "command": "aurora.focusHistory",
+        "title": "Aurora AI: Focus on History View"
+      },
+      {
+        "command": "aurora.configure",
+        "title": "Aurora: Configure Settings"
+      },
+      {
+        "command": "aurora.export",
+        "title": "Aurora: Export Conversations"
+      },
+      {
+        "command": "aurora.import",
+        "title": "Aurora: Import Conversations"
+      }
     ],
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/itz4blitz/aurora"
+    "keybindings": [
+      {
+        "command": "aurora.toggleModel",
+        "key": "ctrl+shift+m",
+        "mac": "cmd+shift+m"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "aurora-ai",
+          "title": "Aurora AI",
+          "icon": "resources/icons/aurora.svg"
+        }
+      ]
     },
-    "license": "MIT"
+    "views": {
+      "aurora-ai": [
+        {
+          "id": "aurora-chat",
+          "name": "Chat",
+          "type": "webview"
+        },
+        {
+          "id": "aurora-history",
+          "name": "History",
+          "type": "webview"
+        }
+      ]
+    },
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "aurora.openChat",
+          "when": "true"
+        },
+        {
+          "command": "aurora.configure",
+          "when": "true"
+        },
+        {
+          "command": "aurora.exportConversations",
+          "when": "true"
+        },
+        {
+          "command": "aurora.importConversations",
+          "when": "true"
+        },
+        {
+          "command": "aurora.toggleModel",
+          "when": "true"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run esbuild-base -- --minify",
+    "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --external:module-alias/register --format=cjs --platform=node",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "build": "npm run clean && npm run esbuild-base && vsce package",
+    "clean": "rimraf dist *.vsix",
+    "lint": "eslint src --ext ts",
+    "test": "node ./dist/test/runTest.js",
+    "pretest": "npm run compile && npm run lint",
+    "prepare": "husky",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "postinstall": "husky install"
+  },
+  "devDependencies": {
+    "@types/diff-match-patch": "^1.0.36",
+    "@types/jszip": "^3.4.0",
+    "@types/module-alias": "^2.0.4",
+    "@types/node": "^16.18.122",
+    "@types/node-fetch": "^2.6.12",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "esbuild": "^0.24.0",
+    "eslint": "^8.56.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.0",
+    "node-fetch": "^3.3.2",
+    "prettier": "^3.1.1",
+    "rimraf": "^5.0.0",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.3.3",
+    "vsce": "^2.15.0",
+    "webpack": "^5.97.1",
+    "webpack-cli": "^5.1.4"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "@types/vscode": "^1.85.0",
+    "diff-match-patch": "^1.0.5",
+    "module-alias": "^2.2.3"
+  },
+  "_moduleAliases": {
+    "@": "dist",
+    "@services": "dist/services",
+    "@ui": "dist/ui",
+    "@utils": "dist/utils",
+    "@webview": "dist/webview",
+    "@config": "dist/config",
+    "@error": "dist/error",
+    "@types": "dist/types",
+    "@commands": "dist/commands",
+    "@visualization": "dist/visualization",
+    "@status": "dist/status",
+    "@sync": "dist/sync"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "prettier --write",
+      "eslint --fix"
+    ]
+  },
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/itz4blitz/aurora"
+  },
+  "license": "MIT"
 }

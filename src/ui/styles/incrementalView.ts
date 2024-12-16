@@ -93,4 +93,4 @@ export const incrementalViewStyles = `
     .dialog-actions button:hover {
         background: var(--vscode-button-hoverBackground);
     }
-`; 
+`;

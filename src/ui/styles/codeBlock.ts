@@ -115,4 +115,4 @@ export const copyScript = `
             }, 2000);
         });
     }
-`; 
+`;
