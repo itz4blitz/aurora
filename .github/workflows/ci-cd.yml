@@ -55,18 +55,32 @@ jobs:
     - name: Bump Version
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: |
-        git add .
-        git commit -m "chore: build artifacts" || echo "No changes to commit"
+        # Stage all changes
+        git add -A
+        
+        # Commit any pending changes
+        if ! git diff --cached --quiet; then
+          git commit -m "chore: build artifacts"
+        fi
+        
+        # Get current version and calculate new version
         CURRENT_VERSION=$(node -p "require('./package.json').version")
         IFS='.' read -r -a VERSION_PARTS <<< "$CURRENT_VERSION"
         PATCH=$((VERSION_PARTS[2] + 1))
         NEW_VERSION="${VERSION_PARTS[0]}.${VERSION_PARTS[1]}.$PATCH"
-        npm --no-git-tag-version version $NEW_VERSION
+        
+        # Update package.json version
+        npm --no-git-tag-version version "$NEW_VERSION"
+        
+        # Stage and commit version bump
         git add package.json package-lock.json
         git commit -m "chore: bump version to $NEW_VERSION"
-        git tag "v$NEW_VERSION"
-        git push origin main
-        git push origin "v$NEW_VERSION"
+        
+        # Create annotated tag
+        git tag -a "v$NEW_VERSION" -m "Version $NEW_VERSION"
+        
+        # Push everything
+        git push origin main --follow-tags
 
   release:
     needs: build
