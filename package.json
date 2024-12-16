@@ -148,5 +148,9 @@
         "onStartupFinished",
         "onCommand:aurora.start",
         "onCommand:aurora.configure"
-    ]
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/itz4blitz/aurora"
+    }
 }
