@@ -3,64 +3,61 @@ import { Logger } from '../utils/Logger';
 import { ErrorSeverity } from '../types';
 
 export class ErrorManager {
-    private static instance: ErrorManager;
-    private readonly logger: Logger;
+  private static instance: ErrorManager;
+  private readonly logger: Logger;
 
-    private constructor() {
-        this.logger = Logger.getInstance();
+  private constructor() {
+    this.logger = Logger.getInstance();
+  }
+
+  public static getInstance(): ErrorManager {
+    if (!ErrorManager.instance) {
+      ErrorManager.instance = new ErrorManager();
     }
+    return ErrorManager.instance;
+  }
 
-    public static getInstance(): ErrorManager {
-        if (!ErrorManager.instance) {
-            ErrorManager.instance = new ErrorManager();
-        }
-        return ErrorManager.instance;
+  async handleError(error: Error, context: string, severity: ErrorSeverity): Promise<void> {
+    this.logger.error(`Error in ${context}: ${error.message}`, error);
+    this.showUserMessage(error, severity);
+
+    if (severity === ErrorSeverity.Critical) {
+      await this.notifyCriticalError(error, context);
     }
+  }
 
-    async handleError(error: Error, context: string, severity: ErrorSeverity): Promise<void> {
-        // Log error
-        this.logger.error(`[${context}] ${error.message}`, error);
+  private async notifyCriticalError(error: Error, context: string): Promise<void> {
+    this.logger.error(`Critical error in ${context}`, error);
 
-        // Track telemetry
-        await this.trackError(error, context);
+    const selection = await vscode.window.showErrorMessage(
+      'A critical error has occurred. Would you like to view the logs?',
+      'View Logs',
+      'Dismiss'
+    );
 
-        // Show user-friendly message
-        this.showUserMessage(error, severity);
+    if (selection === 'View Logs') {
+      this.logger.show();
     }
+  }
 
-    private showUserMessage(error: Error, severity: ErrorSeverity): void {
-        const message = `Aurora AI: ${error.message}`;
-        switch (severity) {
-            case ErrorSeverity.Info:
-                vscode.window.showInformationMessage(message);
-                break;
-            case ErrorSeverity.Warning:
-                vscode.window.showWarningMessage(message);
-                break;
-            case ErrorSeverity.Error:
-            case ErrorSeverity.Critical:
-                vscode.window.showErrorMessage(message);
-                break;
-        }
-    }
+  private showUserMessage(error: Error, severity: ErrorSeverity): void {
+    const message = `Aurora AI: ${error.message}`;
 
-    private async trackError(error: Error, context: string): Promise<void> {
-        // TODO: Implement telemetry
-        // For now, just log
-        this.logger.debug(`[Telemetry] Error in ${context}: ${error.message}`);
+    switch (severity) {
+      case ErrorSeverity.Info:
+        void vscode.window.showInformationMessage(message);
+        break;
+      case ErrorSeverity.Warning:
+        void vscode.window.showWarningMessage(message);
+        break;
+      case ErrorSeverity.Error:
+      case ErrorSeverity.Critical:
+        void vscode.window.showErrorMessage(message);
+        break;
     }
-}
+  }
 
-// Usage example:
-export async function handleOperationWithError(): Promise<void> {
-    try {
-        // some operation
-        throw new Error('Test error');
-    } catch (error) {
-        await ErrorManager.getInstance().handleError(
-            error as Error,
-            'TestOperation',
-            ErrorSeverity.Warning
-        );
-    }
+  public dispose(): void {
+    ErrorManager.instance = null as unknown as ErrorManager;
+  }
 }

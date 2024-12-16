@@ -1,110 +1,104 @@
-import * as vscode from 'vscode';
-import { Logger } from '@utils/Logger';
-import { ErrorManager } from '@error/ErrorManager';
-import { ConfigManager } from '@config/ConfigManager';
-import { StatusBarManager } from '@status/StatusBarManager';
-import { ErrorSeverity } from '@types';
 import * as http from 'http';
 import * as https from 'https';
 import { EventEmitter } from 'events';
 
 export interface ChatMessage {
-    id: string;
-    author: {
-        role: 'user' | 'assistant';
+  id: string;
+  author: {
+    role: 'user' | 'assistant';
+  };
+  content: {
+    content_type: string;
+    parts: string[];
+  };
+  metadata: {
+    serialization_metadata: {
+      custom_symbol_offsets: Record<string, unknown>[];
     };
-    content: {
-        content_type: string;
-        parts: string[];
-    };
-    metadata: {
-        serialization_metadata: {
-            custom_symbol_offsets: any[];
-        };
-    };
-    create_time: number;
+  };
+  create_time: number;
 }
 
 export interface ChatResponse {
-    messages: ChatMessage[];
-    conversation_id?: string;
-    error?: string;
+  messages: ChatMessage[];
+  conversation_id?: string;
+  error?: string;
 }
 
 export class ChatServer extends EventEmitter {
-    private server: http.Server;
-    private readonly TARGET_HOST = 'chatgpt.com';
-    private readonly TARGET_PATH = '/backend-alt/conversation';
-    private authToken?: string;
+  private server: http.Server;
+  private readonly TARGET_HOST = 'chatgpt.com';
+  private readonly TARGET_PATH = '/backend-alt/conversation';
+  private authToken?: string;
 
-    constructor() {
-        super();
-        this.server = this.createServer();
-    }
+  constructor() {
+    super();
+    this.server = this.createServer();
+  }
 
-    setAuthToken(token: string) {
-        this.authToken = token;
-    }
+  setAuthToken(token: string): void {
+    this.authToken = token;
+  }
 
-    private createServer(): http.Server {
-        return http.createServer(async (req, res) => {
-            // Handle CORS
-            res.setHeader('Access-Control-Allow-Origin', '*');
-            res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-            res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  private createServer(): http.Server {
+    return http.createServer((req, res) => {
+      // Handle CORS
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-            if (req.method === 'OPTIONS') {
-                res.writeHead(200);
-                res.end();
-                return;
-            }
+      if (req.method === 'OPTIONS') {
+        res.writeHead(200);
+        res.end();
+        return;
+      }
 
-            if (req.url === '/chat' && req.method === 'POST') {
-                await this.handleChatRequest(req, res);
-            } else {
-                this.serveClientInterface(res);
-            }
-        });
-    }
+      if (req.url === '/chat' && req.method === 'POST') {
+        void this.handleChatRequest(req, res);
+      } else {
+        this.serveClientInterface(res);
+      }
+    });
+  }
 
-    private async handleChatRequest(req: http.IncomingMessage, res: http.ServerResponse) {
-        let body = '';
-        req.on('data', chunk => body += chunk);
-        req.on('end', () => {
-            const options = {
-                hostname: this.TARGET_HOST,
-                path: this.TARGET_PATH,
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': this.authToken,
-                    'Cookie': req.headers.cookie
-                }
-            };
+  private handleChatRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
+    let body = '';
+    req.on('data', (chunk) => (body += chunk));
+    req.on('end', () => {
+      const options = {
+        hostname: this.TARGET_HOST,
+        path: this.TARGET_PATH,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: this.authToken,
+          Cookie: req.headers.cookie,
+        },
+      };
 
-            const proxyReq = https.request(options, (proxyRes) => {
-                res.writeHead(proxyRes.statusCode || 500, proxyRes.headers);
-                proxyRes.pipe(res);
-            });
+      const proxyReq = https.request(options, (proxyRes) => {
+        res.writeHead(proxyRes.statusCode || 500, proxyRes.headers);
+        proxyRes.pipe(res);
+      });
 
-            proxyReq.on('error', (error) => {
-                res.writeHead(500);
-                res.end(JSON.stringify({ error: error.message }));
-                this.emit('error', error);
-            });
+      proxyReq.on('error', (error) => {
+        res.writeHead(500);
+        res.end(JSON.stringify({ error: error.message }));
+        this.emit('error', error);
+      });
 
-            proxyReq.write(body);
-            proxyReq.end();
-        });
-    }
+      proxyReq.write(body);
+      proxyReq.end();
+    });
+  }
 
-    private serveClientInterface(res: http.ServerResponse) {
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end(this.getClientHTML());
-    }
+  private serveClientInterface(res: http.ServerResponse): void {
+    res.writeHead(200, { 'Content-Type': 'text/html' });
+    res.end(this.getClientHTML());
+  }
 
-    private getClientHTML(): string {
-        return `
+  private getClientHTML(): string {
+    return `
             <!DOCTYPE html>
             <html>
             <head>
@@ -127,10 +121,10 @@ export class ChatServer extends EventEmitter {
             </body>
             </html>
         `;
-    }
+  }
 
-    private getStyles(): string {
-        return `
+  private getStyles(): string {
+    return `
             #chat-container { 
                 height: 100vh; 
                 display: flex; 
@@ -221,10 +215,10 @@ export class ChatServer extends EventEmitter {
                 color: var(--vscode-button-foreground);
             }
         `;
-    }
+  }
 
-    private getClientScript(): string {
-        return `
+  private getClientScript(): string {
+    return `
             (function() {
                 const vscode = acquireVsCodeApi();
                 const messagesContainer = document.getElementById('messages');
@@ -449,23 +443,23 @@ export class ChatServer extends EventEmitter {
                 });
             })();
         `;
-    }
+  }
 
-    start(port: number = 3000): Promise<void> {
-        return new Promise((resolve) => {
-            this.server.listen(port, () => {
-                console.log(`Chat server running at http://localhost:${port}/`);
-                resolve();
-            });
-        });
-    }
+  start(port = 3000): Promise<void> {
+    return new Promise((resolve) => {
+      this.server.listen(port, () => {
+        console.log(`Chat server running at http://localhost:${port}/`);
+        resolve();
+      });
+    });
+  }
 
-    stop(): Promise<void> {
-        return new Promise((resolve, reject) => {
-            this.server.close((err) => {
-                if (err) reject(err);
-                else resolve();
-            });
-        });
-    }
-} 
+  stop(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.server.close((err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+  }
+}

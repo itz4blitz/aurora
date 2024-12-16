@@ -5,12 +5,12 @@
     "version": "0.0.1",
     "publisher": "yourpublishername",
     "engines": {
-        "vscode": "^1.75.0"
+        "vscode": "^1.85.0"
     },
     "categories": [
         "Other"
     ],
-    "main": "./out/extension.js",
+    "main": "./dist/extension.js",
     "contributes": {
         "configuration": {
             "title": "Aurora AI",
@@ -121,7 +121,8 @@
     },
     "dependencies": {
         "@google/generative-ai": "^0.21.0",
-        "diff-match-patch": "^1.0.5"
+        "diff-match-patch": "^1.0.5",
+        "@types/vscode": "^1.85.0"
     },
     "_moduleAliases": {
         "@": "src",
@@ -142,5 +143,10 @@
             "prettier --write",
             "eslint --fix"
         ]
-    }
+    },
+    "activationEvents": [
+        "onStartupFinished",
+        "onCommand:aurora.start",
+        "onCommand:aurora.configure"
+    ]
 }

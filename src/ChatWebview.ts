@@ -1,65 +1,134 @@
 import * as vscode from 'vscode';
-import { AIModel, CodeChange, ScrapedResponse, DiffChange, WebviewMessage, AIModelConfig } from '@types';
+import { AIModel, ScrapedResponse, DiffChange, WebviewMessage, ModelConfigWithType } from '@types';
 import { DiffView } from '@ui/components/DiffView';
 import { DiffService } from '@services/DiffService';
+import { Logger } from '@utils/Logger';
+
+interface WebviewDiffMessage {
+  type: 'acceptDiff' | 'rejectDiff' | 'acceptAllDiffs' | 'rejectAllDiffs';
+  diffId?: number;
+}
 
 export class ChatWebview {
-    private static instance: ChatWebview;
-    private panel?: vscode.WebviewPanel;
-    private iframe: HTMLIFrameElement | undefined;
-    private currentModelConfig: AIModelConfig;
-    private observer: MutationObserver | undefined;
-    private pendingChanges: DiffChange[] = [];
-    private currentChangeIndex: number = 0;
-    private diffView: DiffView;
-    private diffService: DiffService;
-    private currentDiffs: DiffChange[] = [];
+  private static instance: ChatWebview;
+  private panel: vscode.WebviewPanel | null = null;
+  private readonly iframe: HTMLIFrameElement;
+  private currentModelConfig: ModelConfigWithType;
+  private observer: MutationObserver | undefined;
+  private pendingChanges: DiffChange[] = [];
+  private currentChangeIndex = 0;
+  private diffView!: DiffView;
+  private diffService: DiffService;
+  private currentDiffs: DiffChange[] = [];
+  private readonly logger = Logger.getInstance();
 
-    private constructor(
-        private readonly extensionUri: vscode.Uri,
-        private readonly context: vscode.ExtensionContext
-    ) {
-        this.currentModelConfig = {
-            type: 'gpt-3.5-turbo',
-            config: {}
-        };
-        this.panel = vscode.window.createWebviewPanel(
-            'auroraChat',
-            'Aurora AI Chat',
-            vscode.ViewColumn.Two,
-            {
-                enableScripts: true,
-                retainContextWhenHidden: true,
-                localResourceRoots: [this.extensionUri]
-            }
-        );
-        this.diffView = new DiffView(this.panel.webview, this.extensionUri);
-        this.diffService = DiffService.getInstance();
-        this.setupDiffMessageHandling();
-    }
+  private constructor(private readonly extensionUri: vscode.Uri) {
+    this.currentModelConfig = {
+      type: 'gpt-3.5-turbo',
+      temperature: 0.7,
+      maxTokens: 4096,
+      topP: 1,
+      frequencyPenalty: 0,
+      presencePenalty: 0,
+    };
 
-    public static getInstance(extensionUri: vscode.Uri, context: vscode.ExtensionContext): ChatWebview {
-        if (!ChatWebview.instance) {
-            ChatWebview.instance = new ChatWebview(extensionUri, context);
+    this.iframe = document.createElement('iframe');
+    this.iframe.id = 'o1pro-iframe';
+    this.iframe.style.width = '100%';
+    this.iframe.style.height = '100%';
+
+    this.panel = vscode.window.createWebviewPanel(
+      'auroraChat',
+      'Aurora AI Chat',
+      vscode.ViewColumn.Two,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: [this.extensionUri],
+      }
+    );
+
+    this.diffView = new DiffView(this.panel.webview, this.extensionUri);
+    this.diffService = DiffService.getInstance();
+
+    this.setupDiffMessageHandling();
+    this.setupIframeObserver();
+  }
+
+  private setupIframeObserver(): void {
+    this.observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'src') {
+          void this.handleIframeSourceChange();
         }
-        return ChatWebview.instance;
-    }
+      });
+    });
 
-    public getWebview(): vscode.Webview | undefined {
-        return this.panel?.webview;
+    if (this.iframe) {
+      this.observer.observe(this.iframe, {
+        attributes: true,
+        attributeFilter: ['src'],
+      });
     }
+  }
 
-    public async handleCommand(command: string, ...args: any[]) {
-        switch (command) {
-            case 'switchModel':
-                await this.handleModelSwitch(args[0]);
-                break;
-            // Add other command handlers
+  private async handleIframeSourceChange(): Promise<void> {
+    if (this.iframe.src && this.currentModelConfig.type === 'o1pro') {
+      if (this.panel?.webview) {
+        await this.panel.webview.postMessage({
+          type: 'iframeSourceChanged',
+          src: this.iframe.src,
+        });
+      }
+    }
+  }
+
+  public static getInstance(extensionUri: vscode.Uri): ChatWebview {
+    if (!ChatWebview.instance) {
+      ChatWebview.instance = new ChatWebview(extensionUri);
+    }
+    return ChatWebview.instance;
+  }
+
+  public getWebview(): vscode.Webview | undefined {
+    return this.panel?.webview;
+  }
+
+  public async handleCommand(command: string, payload: unknown): Promise<void> {
+    switch (command) {
+      case 'switchModel':
+        await this.handleModelSwitch(payload as AIModel);
+        break;
+      case 'sendMessage':
+        await this.handleO1ProResponse(payload as ScrapedResponse);
+        break;
+      case 'clearChat':
+        await this.rejectChanges();
+        break;
+      case 'acceptDiff':
+        if (typeof payload === 'number') {
+          await this.handleAcceptDiff(payload);
         }
+        break;
+      case 'rejectDiff':
+        if (typeof payload === 'number') {
+          await this.handleRejectDiff(payload);
+        }
+        break;
+      case 'acceptAllDiffs':
+        await this.handleAcceptAllDiffs();
+        break;
+      case 'rejectAllDiffs':
+        await this.handleRejectAllDiffs();
+        break;
+      default:
+        this.logger.warn(`Unhandled command: ${command}`);
+        break;
     }
+  }
 
-    private getWebviewContent(): string {
-        return `
+  private getWebviewContent(): string {
+    return `
             <!DOCTYPE html>
             <html>
                 <head>
@@ -170,318 +239,368 @@ export class ChatWebview {
                 </body>
             </html>
         `;
-    }
+  }
 
-    private async setupMessageHandling() {
-        if (!this.panel) return;
+  private setupMessageHandling(): void {
+    if (!this.panel) return;
 
-        this.panel.webview.onDidReceiveMessage(async (message: WebviewMessage) => {
-            switch (message.type) {
-                case 'switchModel':
-                    await this.handleModelSwitch(message.model);
-                    break;
-                case 'o1proResponse':
-                    await this.handleO1ProResponse(message.response);
-                    break;
-                case 'acceptAllChanges':
-                    await this.acceptAllChanges();
-                    break;
-                case 'acceptNextChange':
-                    await this.acceptNextChange();
-                    break;
-                case 'rejectChanges':
-                    await this.rejectChanges();
-                    break;
-            }
-        });
-    }
+    this.panel.webview.onDidReceiveMessage((message: WebviewMessage) => {
+      void this.handleMessage(message);
+    });
+  }
 
-    private async handleModelSwitch(model: AIModel) {
-        this.currentModelConfig = { type: model, config: {} };
-        await vscode.commands.executeCommand('aiAssistant.modelSwitched', model);
-        
-        if (this.panel) {
-            await this.panel.webview.postMessage({
-                type: 'modelSwitched',
-                model: model
-            });
-        }
-    }
-
-    private async handleO1ProResponse(response: ScrapedResponse) {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) return;
-
-        const document = editor.document;
-        const selection = editor.selection;
-        const originalText = document.getText(selection);
-
-        const diffs = this.generateDiffs(originalText, response.suggestedCode);
-        this.pendingChanges = diffs.map(diff => ({
-            original: diff.original,
-            suggested: diff.suggested,
-            range: new vscode.Range(
-                document.positionAt(diff.startOffset),
-                document.positionAt(diff.endOffset)
-            ),
-            status: 'pending'
-        }));
-
-        await this.showCurrentDiff();
-    }
-
-    private generateDiffs(original: string, suggested: string): Array<{
-        original: string,
-        suggested: string,
-        startOffset: number,
-        endOffset: number
-    }> {
-        // Simple line-by-line diff for now
-        const originalLines = original.split('\n');
-        const suggestedLines = suggested.split('\n');
-        const diffs: Array<{
-            original: string,
-            suggested: string,
-            startOffset: number,
-            endOffset: number
-        }> = [];
-
-        let offset = 0;
-        for (let i = 0; i < Math.max(originalLines.length, suggestedLines.length); i++) {
-            const originalLine = originalLines[i] || '';
-            const suggestedLine = suggestedLines[i] || '';
-
-            if (originalLine !== suggestedLine) {
-                diffs.push({
-                    original: originalLine,
-                    suggested: suggestedLine,
-                    startOffset: offset,
-                    endOffset: offset + Math.max(originalLine.length, suggestedLine.length)
-                });
-            }
-            offset += originalLine.length + 1; // +1 for newline
-        }
-
-        return diffs;
-    }
-
-    private async showCurrentDiff() {
-        if (this.pendingChanges.length === 0) return;
-        
-        const currentDiff = this.pendingChanges[this.currentChangeIndex];
-        
-        // Highlight the current change in the editor
-        const editor = vscode.window.activeTextEditor;
-        if (editor) {
-            editor.setDecorations(this.getDiffDecoration(), [currentDiff.range]);
-        }
-
-        // Update webview with current diff
-        if (this.panel) {
-            await this.panel.webview.postMessage({
-                type: 'showDiff',
-                diff: {
-                    original: currentDiff.original,
-                    suggested: currentDiff.suggested,
-                    index: this.currentChangeIndex,
-                    total: this.pendingChanges.length
-                }
-            });
-        }
-    }
-
-    private getDiffDecoration(): vscode.TextEditorDecorationType {
-        return vscode.window.createTextEditorDecorationType({
-            backgroundColor: new vscode.ThemeColor('diffEditor.insertedTextBackground'),
-            border: '1px solid',
-            borderColor: new vscode.ThemeColor('diffEditor.insertedTextBorder')
-        });
-    }
-
-    private async acceptAllChanges() {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) return;
-
-        // Apply all changes in reverse order to maintain correct positions
-        const sortedChanges = [...this.pendingChanges]
-            .sort((a, b) => b.range.start.line - a.range.start.line);
-
-        await editor.edit(editBuilder => {
-            for (const change of sortedChanges) {
-                editBuilder.replace(change.range, change.suggested);
-                change.status = 'accepted';
-            }
-        });
-
-        // Clear pending changes
-        this.pendingChanges = [];
-        this.currentChangeIndex = 0;
-        
-        if (this.panel) {
-            await this.panel.webview.postMessage({
-                type: 'changesApplied',
-                remaining: 0
-            });
-        }
-    }
-
-    private async acceptNextChange() {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor || this.currentChangeIndex >= this.pendingChanges.length) return;
-
-        const currentChange = this.pendingChanges[this.currentChangeIndex];
-        
-        await editor.edit(editBuilder => {
-            editBuilder.replace(currentChange.range, currentChange.suggested);
-            currentChange.status = 'accepted';
-        });
-
-        this.currentChangeIndex++;
-        
-        if (this.currentChangeIndex < this.pendingChanges.length) {
-            await this.showCurrentDiff();
+  private async handleMessage(message: WebviewMessage): Promise<void> {
+    switch (message.type) {
+      case 'switchModel':
+        if (message.model) {
+          await this.handleModelSwitch(message.model);
         } else {
-            if (this.panel) {
-                await this.panel.webview.postMessage({
-                    type: 'changesApplied',
-                    remaining: 0
-                });
-            }
+          this.logger.warn('Received switchModel message without model');
         }
+        break;
+      case 'o1proResponse':
+        if (message.response) {
+          await this.handleO1ProResponse(message.response);
+        } else {
+          this.logger.warn('Received o1proResponse message without response data');
+        }
+        break;
+      case 'acceptAllChanges':
+        await this.acceptAllChanges();
+        break;
+      case 'acceptNextChange':
+        await this.acceptNextChange();
+        break;
+      case 'rejectChanges':
+        await this.rejectChanges();
+        break;
+    }
+  }
+
+  private async handleModelSwitch(model: AIModel): Promise<void> {
+    this.currentModelConfig = {
+      type: model,
+      temperature: 0.7,
+      maxTokens: model === 'gpt-4' ? 8192 : 4096,
+      topP: 1,
+      frequencyPenalty: 0,
+      presencePenalty: 0,
+    };
+
+    if (this.panel) {
+      await this.panel.webview.postMessage({
+        type: 'modelSwitched',
+        model: model,
+        config: this.currentModelConfig,
+      });
     }
 
-    private async rejectChanges() {
-        // Clear all pending changes
-        this.pendingChanges = [];
-        this.currentChangeIndex = 0;
-
-        // Clear decorations
-        const editor = vscode.window.activeTextEditor;
-        if (editor) {
-            editor.setDecorations(this.getDiffDecoration(), []);
-        }
-
-        if (this.panel) {
-            await this.panel.webview.postMessage({
-                type: 'changesRejected'
-            });
-        }
+    if (model === 'o1pro') {
+      this.iframe.src = 'https://o1pro.example.com';
     }
 
-    public async show() {
-        if (this.panel) {
-            this.panel.reveal();
-            return;
-        }
+    await vscode.commands.executeCommand('aiAssistant.modelSwitched', model);
+  }
 
-        this.panel = vscode.window.createWebviewPanel(
-            'auroraChat',
-            'Aurora AI Chat',
-            vscode.ViewColumn.Two,
-            {
-                enableScripts: true,
-                retainContextWhenHidden: true,
-                localResourceRoots: [this.extensionUri]
-            }
-        );
+  private async handleO1ProResponse(response: ScrapedResponse): Promise<void> {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) return;
 
-        this.panel.webview.html = this.getWebviewContent();
-        this.setupMessageHandling();
-        this.panel.onDidDispose(() => this.dispose());
+    const document = editor.document;
+    const selection = editor.selection;
+    const originalText = document.getText(selection);
+
+    if (!response || typeof response !== 'object') {
+      this.logger.error('Invalid response received');
+      return;
     }
 
-    private dispose() {
-        this.panel = undefined;
-        if (this.observer) {
-            this.observer.disconnect();
-        }
-    }
+    const suggestedCode = typeof response.text === 'string' ? response.text : '';
 
-    private setupDiffMessageHandling() {
-        this.panel?.webview.onDidReceiveMessage(async (message) => {
-            switch (message.type) {
-                case 'acceptDiff':
-                    await this.handleAcceptDiff(message.diffId);
-                    break;
-                case 'rejectDiff':
-                    await this.handleRejectDiff(message.diffId);
-                    break;
-                case 'acceptAllDiffs':
-                    await this.handleAcceptAllDiffs();
-                    break;
-                case 'rejectAllDiffs':
-                    await this.handleRejectAllDiffs();
-                    break;
-            }
+    const diffs = this.generateDiffs(originalText, suggestedCode);
+    this.pendingChanges = diffs.map((diff) => ({
+      original: diff.original,
+      suggested: diff.suggested,
+      range: new vscode.Range(
+        document.positionAt(diff.startOffset),
+        document.positionAt(diff.endOffset)
+      ),
+      status: 'pending',
+    }));
+
+    await this.showCurrentDiff();
+  }
+
+  private generateDiffs(
+    original: string,
+    suggested: string
+  ): Array<{
+    original: string;
+    suggested: string;
+    startOffset: number;
+    endOffset: number;
+  }> {
+    // Simple line-by-line diff for now
+    const originalLines = original.split('\n');
+    const suggestedLines = suggested.split('\n');
+    const diffs: Array<{
+      original: string;
+      suggested: string;
+      startOffset: number;
+      endOffset: number;
+    }> = [];
+
+    let offset = 0;
+    for (let i = 0; i < Math.max(originalLines.length, suggestedLines.length); i++) {
+      const originalLine = originalLines[i] || '';
+      const suggestedLine = suggestedLines[i] || '';
+
+      if (originalLine !== suggestedLine) {
+        diffs.push({
+          original: originalLine,
+          suggested: suggestedLine,
+          startOffset: offset,
+          endOffset: offset + Math.max(originalLine.length, suggestedLine.length),
         });
+      }
+      offset += originalLine.length + 1; // +1 for newline
     }
 
-    async showDiffs(original: string, suggested: string) {
-        this.currentDiffs = await this.diffService.computeDiffs(original, suggested);
-        await this.updateDiffView();
+    return diffs;
+  }
+
+  private async showCurrentDiff(): Promise<void> {
+    if (this.pendingChanges.length === 0) return;
+
+    const currentDiff = this.pendingChanges[this.currentChangeIndex];
+
+    // Highlight the current change in the editor
+    const editor = vscode.window.activeTextEditor;
+    if (editor) {
+      editor.setDecorations(this.getDiffDecoration(), [currentDiff.range]);
     }
 
-    private async updateDiffView() {
-        if (this.panel) {
-            const content = this.diffView.getWebviewContent(this.currentDiffs);
-            await this.panel.webview.postMessage({
-                type: 'updateDiffs',
-                content
-            });
-        }
+    // Update webview with current diff
+    if (this.panel) {
+      await this.panel.webview.postMessage({
+        type: 'showDiff',
+        diff: {
+          original: currentDiff.original,
+          suggested: currentDiff.suggested,
+          index: this.currentChangeIndex,
+          total: this.pendingChanges.length,
+        },
+      });
     }
+  }
 
-    private async handleAcceptDiff(diffId: number) {
-        const diff = this.currentDiffs[diffId];
-        if (!diff) return;
+  private getDiffDecoration(): vscode.TextEditorDecorationType {
+    return vscode.window.createTextEditorDecorationType({
+      backgroundColor: new vscode.ThemeColor('diffEditor.insertedTextBackground'),
+      border: '1px solid',
+      borderColor: new vscode.ThemeColor('diffEditor.insertedTextBorder'),
+    });
+  }
 
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) return;
+  private async acceptAllChanges(): Promise<void> {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) return;
 
-        await editor.edit(editBuilder => {
-            editBuilder.replace(diff.range, diff.suggested);
+    // Apply all changes in reverse order to maintain correct positions
+    const sortedChanges = [...this.pendingChanges].sort(
+      (a, b) => b.range.start.line - a.range.start.line
+    );
+
+    await editor.edit((editBuilder) => {
+      for (const change of sortedChanges) {
+        editBuilder.replace(change.range, change.suggested);
+        change.status = 'accepted';
+      }
+    });
+
+    // Clear pending changes
+    this.pendingChanges = [];
+    this.currentChangeIndex = 0;
+
+    if (this.panel) {
+      await this.panel.webview.postMessage({
+        type: 'changesApplied',
+        remaining: 0,
+      });
+    }
+  }
+
+  private async acceptNextChange(): Promise<void> {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || this.currentChangeIndex >= this.pendingChanges.length) return;
+
+    const currentChange = this.pendingChanges[this.currentChangeIndex];
+
+    await editor.edit((editBuilder) => {
+      editBuilder.replace(currentChange.range, currentChange.suggested);
+      currentChange.status = 'accepted';
+    });
+
+    this.currentChangeIndex++;
+
+    if (this.currentChangeIndex < this.pendingChanges.length) {
+      await this.showCurrentDiff();
+    } else {
+      if (this.panel) {
+        await this.panel.webview.postMessage({
+          type: 'changesApplied',
+          remaining: 0,
         });
+      }
+    }
+  }
 
-        diff.status = 'accepted';
-        await this.updateDiffView();
+  private async rejectChanges(): Promise<void> {
+    // Clear all pending changes
+    this.pendingChanges = [];
+    this.currentChangeIndex = 0;
+
+    // Clear decorations
+    const editor = vscode.window.activeTextEditor;
+    if (editor) {
+      editor.setDecorations(this.getDiffDecoration(), []);
     }
 
-    private async handleRejectDiff(diffId: number) {
-        const diff = this.currentDiffs[diffId];
-        if (!diff) return;
+    if (this.panel) {
+      await this.panel.webview.postMessage({
+        type: 'changesRejected',
+      });
+    }
+  }
 
+  public show(): void {
+    if (this.panel) {
+      this.panel.reveal();
+      return;
+    }
+
+    this.panel = vscode.window.createWebviewPanel(
+      'auroraChat',
+      'Aurora AI Chat',
+      vscode.ViewColumn.Two,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: [this.extensionUri],
+      }
+    );
+
+    this.panel.webview.html = this.getWebviewContent();
+    this.setupMessageHandling();
+    this.panel.onDidDispose(() => this.dispose());
+  }
+
+  private dispose(): void {
+    if (this.panel) {
+      this.panel.dispose();
+      this.panel = null;
+    }
+    if (this.observer) {
+      this.observer.disconnect();
+    }
+  }
+
+  private setupDiffMessageHandling(): void {
+    if (!this.panel?.webview) return;
+
+    this.panel.webview.onDidReceiveMessage((message: WebviewDiffMessage) => {
+      void this.handleDiffMessage(message);
+    });
+  }
+
+  private async handleDiffMessage(message: WebviewDiffMessage): Promise<void> {
+    switch (message.type) {
+      case 'acceptDiff':
+        if (typeof message.diffId === 'number') {
+          await this.handleAcceptDiff(message.diffId);
+        }
+        break;
+      case 'rejectDiff':
+        if (typeof message.diffId === 'number') {
+          await this.handleRejectDiff(message.diffId);
+        }
+        break;
+      case 'acceptAllDiffs':
+        await this.handleAcceptAllDiffs();
+        break;
+      case 'rejectAllDiffs':
+        await this.handleRejectAllDiffs();
+        break;
+    }
+  }
+
+  public async showDiffs(original: string, suggested: string): Promise<void> {
+    this.currentDiffs = await this.diffService.computeDiffs(original, suggested);
+    await this.updateDiffView();
+  }
+
+  private async updateDiffView(): Promise<void> {
+    if (this.panel) {
+      const content = this.diffView.getWebviewContent(this.currentDiffs);
+      await this.panel.webview.postMessage({
+        type: 'updateDiffs',
+        content,
+      });
+    }
+  }
+
+  private async handleAcceptDiff(diffId: number): Promise<void> {
+    const diff = this.currentDiffs[diffId];
+    if (!diff) return;
+
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) return;
+
+    await editor.edit((editBuilder) => {
+      editBuilder.replace(diff.range, diff.suggested);
+    });
+
+    diff.status = 'accepted';
+    await this.updateDiffView();
+  }
+
+  private async handleRejectDiff(diffId: number): Promise<void> {
+    const diff = this.currentDiffs[diffId];
+    if (!diff) return;
+
+    diff.status = 'rejected';
+    await this.updateDiffView();
+  }
+
+  private async handleAcceptAllDiffs(): Promise<void> {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) return;
+
+    // Apply changes in reverse order to maintain correct positions
+    const sortedDiffs = [...this.currentDiffs].sort(
+      (a, b) => b.range.start.line - a.range.start.line
+    );
+
+    await editor.edit((editBuilder) => {
+      for (const diff of sortedDiffs) {
+        if (diff.status === 'pending') {
+          editBuilder.replace(diff.range, diff.suggested);
+          diff.status = 'accepted';
+        }
+      }
+    });
+
+    await this.updateDiffView();
+  }
+
+  private async handleRejectAllDiffs(): Promise<void> {
+    for (const diff of this.currentDiffs) {
+      if (diff.status === 'pending') {
         diff.status = 'rejected';
-        await this.updateDiffView();
+      }
     }
+    await this.updateDiffView();
+  }
 
-    private async handleAcceptAllDiffs() {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) return;
-
-        // Apply changes in reverse order to maintain correct positions
-        const sortedDiffs = [...this.currentDiffs]
-            .sort((a, b) => b.range.start.line - a.range.start.line);
-
-        await editor.edit(editBuilder => {
-            for (const diff of sortedDiffs) {
-                if (diff.status === 'pending') {
-                    editBuilder.replace(diff.range, diff.suggested);
-                    diff.status = 'accepted';
-                }
-            }
-        });
-
-        await this.updateDiffView();
-    }
-
-    private async handleRejectAllDiffs() {
-        for (const diff of this.currentDiffs) {
-            if (diff.status === 'pending') {
-                diff.status = 'rejected';
-            }
-        }
-        await this.updateDiffView();
-    }
-
-    // ... implement other diff-related methods
-} 
+  // ... implement other diff-related methods
+}

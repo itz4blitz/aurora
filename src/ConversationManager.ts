@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
-import { Conversation } from '@/types';
-import { GeminiService } from '@services/GeminiService';
-import { Logger } from '@utils/Logger';
+import { Conversation } from './types';
+import { GeminiService } from './services/GeminiService';
+import { Logger } from './utils/Logger';
 
 interface ChatGPTResponse {
   conversation_id: string;
@@ -16,7 +16,7 @@ interface ChatGPTResponse {
   };
 }
 
-interface ConversationApiResponse {
+interface ConversationData {
   items: Conversation[];
 }
 
@@ -47,7 +47,7 @@ export class ConversationManager {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = (await response.json()) as ConversationApiResponse;
+      const data = (await response.json()) as ConversationData;
       const conversations = data.items;
 
       // Update local cache
@@ -124,47 +124,6 @@ export class ConversationManager {
     return result;
   }
 
-  getConversation(id: string): Conversation | undefined {
-    return this.conversations.get(id);
-  }
-
-  getAllConversations(): Conversation[] {
-    return Array.from(this.conversations.values());
-  }
-
-  async toggleConversationPin(conversationId: string): Promise<void> {
-    try {
-      const conversation = this.getConversation(conversationId);
-      if (!conversation) {
-        throw new Error('Conversation not found');
-      }
-
-      const isPinned = !conversation.is_pinned;
-
-      const response = await fetch(
-        `https://chatgpt.com/backend-api/conversation/${conversationId}`,
-        {
-          method: 'PATCH',
-          headers: {
-            Authorization: `Bearer ${this.authToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            is_pinned: isPinned,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to ${isPinned ? 'pin' : 'unpin'} conversation`);
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      void this.logger.error('Failed to toggle conversation pin', new Error(errorMessage));
-      throw error;
-    }
-  }
-
   async deleteConversation(id: string): Promise<void> {
     try {
       const response = await fetch(`https://chatgpt.com/backend-api/conversation/${id}`, {
@@ -214,38 +173,53 @@ export class ConversationManager {
     }
   }
 
-  async starConversation(id: string, starred: boolean): Promise<void> {
-    try {
-      const response = await fetch(`https://chatgpt.com/backend-api/conversation/${id}/star`, {
-        method: starred ? 'POST' : 'DELETE',
-        headers: {
-          Authorization: `Bearer ${this.authToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update star status');
-      }
-
-      const conversation = this.conversations.get(id);
-      if (conversation) {
-        conversation.is_starred = starred;
-        this.conversations.set(id, conversation);
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      void vscode.window.showErrorMessage(`Failed to star conversation: ${errorMessage}`);
-      throw error;
-    }
-  }
-
   private generateUUID(): string {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
       const r = (Math.random() * 16) | 0;
-      const v = c == 'x' ? r : (r & 0x3) | 0x8;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
       return v.toString(16);
     });
+  }
+
+  getConversation(id: string): Conversation | undefined {
+    return this.conversations.get(id);
+  }
+
+  getAllConversations(): Conversation[] {
+    return Array.from(this.conversations.values());
+  }
+
+  async toggleConversationPin(conversationId: string): Promise<void> {
+    try {
+      const conversation = this.getConversation(conversationId);
+      if (!conversation) {
+        throw new Error('Conversation not found');
+      }
+
+      const isPinned = !conversation.is_pinned;
+
+      const response = await fetch(
+        `https://chatgpt.com/backend-api/conversation/${conversationId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${this.authToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            is_pinned: isPinned,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to ${isPinned ? 'pin' : 'unpin'} conversation`);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error : new Error('Unknown error');
+      this.logger.error('Failed to toggle conversation pin', errorMessage);
+      throw error;
+    }
   }
 
   async toggleConversationStar(conversationId: string): Promise<void> {
@@ -275,8 +249,8 @@ export class ConversationManager {
         throw new Error(`Failed to ${isStarred ? 'star' : 'unstar'} conversation`);
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      void this.logger.error('Failed to toggle conversation star', new Error(errorMessage));
+      const errorMessage = error instanceof Error ? error : new Error('Unknown error');
+      this.logger.error('Failed to toggle conversation star', errorMessage);
       throw error;
     }
   }

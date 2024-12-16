@@ -2,20 +2,13 @@ import * as vscode from 'vscode';
 import { ConfigManager } from '@config/ConfigManager';
 import { ErrorManager } from '@error/ErrorManager';
 import { Logger } from '@utils/Logger';
-import { ErrorSeverity, Settings, DEFAULT_MODEL_CONFIGS } from '@/types';
-
-// Define all possible message types including responses
-type SettingsWebviewMessage =
-  | { type: 'updateSettings'; settings: Partial<Settings> }
-  | { type: 'getSettings' }
-  | { type: 'resetSettings' }
-  | { type: 'settingsLoaded'; settings: Settings };
+import { ErrorSeverity, Settings, DEFAULT_MODEL_CONFIGS, WebviewMessage } from '@types';
 
 export class SettingsWebview {
-  private panel: vscode.WebviewPanel | null = null;
-  private readonly configManager: ConfigManager;
-  private readonly errorManager: ErrorManager;
-  private readonly logger: Logger;
+  private panel: vscode.WebviewPanel | undefined;
+  private configManager: ConfigManager;
+  private errorManager: ErrorManager;
+  private logger: Logger;
 
   constructor() {
     this.configManager = ConfigManager.getInstance();
@@ -40,26 +33,26 @@ export class SettingsWebview {
         }
       );
 
-      const content = await this.getWebviewContent();
-      this.panel.webview.html = content;
+      const settings = await this.configManager.getAllSettings();
+      this.panel.webview.html = this.getWebviewContent(settings);
 
-      void this.panel.onDidDispose(() => {
-        this.panel = null;
+      this.panel.onDidDispose(() => {
+        this.panel = undefined;
         this.logger.info('Settings webview disposed');
       });
 
-      void this.panel.webview.onDidReceiveMessage((rawMessage: unknown) => {
-        void this.handleMessage(rawMessage as SettingsWebviewMessage);
+      this.panel.webview.onDidReceiveMessage((message: unknown) => {
+        if (this.isWebviewMessage(message)) {
+          void this.handleMessage(message);
+        } else {
+          this.logger.warn('Invalid message received from webview');
+        }
       });
 
-      // Load initial settings
-      const settings = await this.configManager.getAllSettings();
-      if (this.panel?.webview) {
-        void this.panel.webview.postMessage({
-          type: 'settingsLoaded',
-          settings,
-        });
-      }
+      void this.panel.webview.postMessage({
+        type: 'settingsLoaded',
+        settings,
+      });
 
       this.logger.info('Settings webview initialized');
     } catch (error) {
@@ -71,14 +64,26 @@ export class SettingsWebview {
     }
   }
 
-  private async handleMessage(message: SettingsWebviewMessage): Promise<void> {
+  private isWebviewMessage(message: unknown): message is WebviewMessage {
+    return (
+      typeof message === 'object' &&
+      message !== null &&
+      'type' in message &&
+      typeof (message as WebviewMessage).type === 'string'
+    );
+  }
+
+  private async handleMessage(message: WebviewMessage): Promise<void> {
     try {
       this.logger.debug(`Handling settings message: ${message.type}`);
 
       switch (message.type) {
         case 'updateSettings': {
-          const settings = message.settings;
-          if (settings.geminiApiKey) {
+          if (!message.settings) {
+            throw new Error('No settings provided in update message');
+          }
+
+          if (message.settings.geminiApiKey) {
             const isValid = await this.configManager.hasValidGeminiKey();
             if (!isValid) {
               void vscode.window.showErrorMessage('Invalid Gemini API key');
@@ -86,15 +91,15 @@ export class SettingsWebview {
               return;
             }
           }
-          await this.configManager.updateSettings(settings);
+
+          await this.configManager.updateSettings(message.settings);
           void vscode.window.showInformationMessage('Settings updated successfully');
           this.logger.info('Settings updated successfully');
           break;
         }
-
         case 'getSettings': {
           const settings = await this.configManager.getAllSettings();
-          if (this.panel?.webview) {
+          if (this.panel) {
             void this.panel.webview.postMessage({
               type: 'settingsLoaded',
               settings,
@@ -103,14 +108,13 @@ export class SettingsWebview {
           this.logger.debug('Settings loaded and sent to webview');
           break;
         }
-
         case 'resetSettings': {
           await this.resetSettings();
           break;
         }
-
         default: {
-          this.logger.warn(`Unknown message type received: ${(message as { type: string }).type}`);
+          this.logger.warn(`Unknown message type received: ${message.type}`);
+          break;
         }
       }
     } catch (error) {
@@ -122,9 +126,7 @@ export class SettingsWebview {
     }
   }
 
-  private async getWebviewContent(): Promise<string> {
-    const settings = await this.configManager.getAllSettings();
-
+  private getWebviewContent(settings: Settings): string {
     return `
             <!DOCTYPE html>
             <html lang="en">
@@ -177,13 +179,14 @@ export class SettingsWebview {
                     }
 
                     window.addEventListener('message', event => {
-                        const message = event.data as { type: string; settings?: Settings };
-                        if (message.type === 'settingsLoaded' && message.settings) {
-                            if (message.settings.geminiApiKey) {
-                                document.getElementById('geminiApiKey').value = message.settings.geminiApiKey;
+                        const message = event.data;
+                        if (message.type === 'settingsLoaded') {
+                            const settings = message.settings;
+                            if (settings.geminiApiKey) {
+                                document.getElementById('geminiApiKey').value = settings.geminiApiKey;
                             }
-                            if (message.settings.defaultModel) {
-                                document.getElementById('defaultModel').value = message.settings.defaultModel;
+                            if (settings.defaultModel) {
+                                document.getElementById('defaultModel').value = settings.defaultModel;
                             }
                         }
                     });
@@ -230,10 +233,7 @@ export class SettingsWebview {
   }
 
   public dispose(): void {
-    if (this.panel) {
-      this.panel.dispose();
-      this.panel = null;
-    }
+    this.panel?.dispose();
     this.logger.info('Settings webview disposed');
   }
 }
