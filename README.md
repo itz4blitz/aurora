@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="media/aurora.jpg" alt="Aurora AI" width="600"/>
+  <img src="./media/aurora.jpg" alt="Aurora AI" width="400"/>
   <h1>Aurora AI Extension for VS Code</h1>
   <p>A powerful AI coding assistant that brings the northern lights to your development workflow</p>
 </div>
